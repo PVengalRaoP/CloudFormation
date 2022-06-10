@@ -1,0 +1,580 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Metadata: 
+  License: Apache-2.0
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "VPC selection"
+        Parameters:
+          - ConditionStatement
+      -
+        Label:
+          default: "Configuration for new VPC"
+        Parameters:
+          - VpcCIDR
+          - SubnetOneCIDR
+          - SubnetTwoCIDR
+
+      -
+        Label:
+          default: "Select the VPC if you want to use existing VPC (Note: Ignore these if you want to create New VPC)"
+        Parameters:
+          - VPC
+          - OldPublicOne
+          - OldPublicTwo
+
+      -
+        Label:
+          default: "Database Configuration"
+        Parameters:
+          - DBName
+          - DBUser
+          - DBPassword
+          - DBAllocatedStorage
+          - DBInstanceClass
+          - DBStorageType
+          - DBIops
+          - DBMaxAllocatedStorage
+      -
+        Label:
+          default: "Availability and Durability"
+        Parameters:
+          - DBMultiAZ
+
+      -
+        Label:
+          default: "Logs"
+        Parameters:
+          - DBEnableLogsExports
+          - DBEnableCloudwatchLogsExports
+
+
+    ParameterLabels:
+      ConditionStatement:
+        default: " Sure do you wanna create new VPC ? "
+      VpcCIDR:
+        default: "CIDR for VPC "
+      SubnetOneCIDR:
+        default: "CIDR for subnet1 "
+      SubnetTwoCIDR:
+        default: "CIDR for subnet2 "
+      VPC:
+        default: "Select VPC"
+      OldPublicOne:
+        default: "Select subnet1"
+      OldPublicTwo:
+        default: "Select subnet2" 
+      DBName:
+        default: "Name of the DB"
+      DBUser:
+        default: "Name of the User"
+      DBPassword:
+        default: "Please create password"
+      DBAllocatedStorage:
+        default: "Storage allocation"
+      DBInstanceClass:
+        default: "instance Class"
+      DBEnableLogsExports:
+        default: "Logs Export"
+      DBEnableCloudwatchLogsExports:
+        default: "CloudWatch Logs Export "
+
+Description: 'AWS CloudFormation Template for RDS_Postgres'
+Parameters:
+
+  ConditionStatement:
+    Type: String
+    Description: Do you want to create new VPC ?
+    Default: Noo
+    AllowedValues: [Noo,Yess]
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC Id required to reference in security group.
+    Default: vpc-01d3e469
+
+  OldPublicOne:
+    Description : subnet One
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-9b5a8ee0
+
+  OldPublicTwo:
+    Description : subnet Two
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-7bd95437
+
+
+  VpcCIDR:
+    Description: Enter VPC CIDR(If you want to create NewVPC)
+    Type: String
+    Default: NA
+
+  SubnetOneCIDR:
+    Description: Enter first Subnet  CIDR(If you want to create NewVPC)
+    Type: String
+    Default: NA    
+
+  SubnetTwoCIDR:
+    Description: Enter first Subnet  CIDR(If you want to create NewVPC)
+    Type: String
+    Default: NA  
+
+  # SubnetThirdCIDR:
+  #   Description: Enter first Subnet  CIDR(If you want to create NewVPC)
+  #   Type: String
+  #   Default: NA
+  EngineVersion:
+    Description: 'PostgreSQL version.'
+    Type: String
+    Default: '13.4'
+    AllowedValues: ['9.6.23', '9.6.24', '10.17', '10.18', '10.19', '11.1', '11.4', '11.5', '11.6', '11.8', '11.10', '11.12', '11.13', '11.14', '12.6', '12.7', '12.8', '12.9', '13.3', '13.4', '13.5', '14.1', '14.2']
+
+  DBName:
+    Default: MyDatabase
+    Description: The database name
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+  DBInstanceIdentifier:
+    Description: Name of DB instance Identifier
+    Type: String
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+  DBStorageType:
+    Default: io1
+    Type: String
+    AllowedValues:
+      - io1
+      - gp2
+
+  DBUser:
+    NoEcho: 'true'
+    Description: The database admin account username
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric
+      characters.
+  DBPassword:
+    NoEcho: 'true'
+    Description: "The database admin account password Can't contain any of the following: / (slash), '(single quote), \"(double quote) and @ (at sign). "
+    Type: String
+    MinLength: '1'
+    MaxLength: '41'
+    #AllowedPattern: '[a-zA-Z0-9]+'
+    ConstraintDescription: "At least 8 printable ASCII characters. Can't contain any of the following: / (slash), '(single quote), \"(double quote) and @ (at sign)."
+
+  DBAllocatedStorage:
+    Default: 100
+    Description: The size of the database (Gb)
+    Type: Number
+
+  DBMaxAllocatedStorage:
+    Default: 1000
+    Description: The upper limit in gigabytes to which Amazon RDS can automatically scale the storage
+    Type: Number
+
+  DBIops:
+    Default: 3000
+    ConstraintDescription: Must be in the range 1,000 - 80,000 IOPS
+    Description: 'Must be in the range of 1,000 - 80,000 IOPS'
+    MinValue: 1000
+    MaxValue: 80000
+    Type: Number
+
+  DBInstanceClass:
+    Description: The database instance type
+    Type: String
+    Default: db.t3.micro
+    AllowedValues: [db.m5.large, db.t3.micro, db.t1.micro, db.m1.small, db.m1.medium, db.m1.large, db.m1.xlarge,
+      db.m2.xlarge, db.m2.2xlarge, db.m2.4xlarge, db.m3.medium, db.m3.large, db.m3.xlarge,
+      db.m3.2xlarge, db.m4.large, db.m4.xlarge, db.m4.2xlarge, db.m4.4xlarge, db.m4.10xlarge,
+      db.r3.large, db.r3.xlarge, db.r3.2xlarge, db.r3.4xlarge, db.r3.8xlarge, db.m2.xlarge,
+      db.m2.2xlarge, db.m2.4xlarge, db.cr1.8xlarge, db.t2.micro, db.t2.small, db.t2.medium,
+      db.t2.large]
+
+  # DBPort:
+  #   Default: 5432
+  #   Description: "The port the instance will listen for connections on."
+  #   Type: Number
+  #   ConstraintDescription: 'Must be in the range [1115-65535].'
+  #   MinValue: 1150
+  #   MaxValue: 65535
+
+  DBBackupRetentionPeriod:
+    Default: "7"
+    Description: "The number of days for which automatic database snapshots are retained.[1 to 35 ] "
+    Type: String
+
+  CopyTagsToSnapshot:
+    Default: "False"
+    Type: String
+    Description:  copy tags from the DB instance to snapshots of the DB instance. By default, tags are not copied.
+    AllowedValues:
+      - "True"
+      - "False"
+  PreferredBackupWindow:
+    Description: The daily time range during which automated backups are created if automated backups are enabled. ( Example 10:00-10:30  ) and it should be in UTC.
+    Type: String
+
+  PublicAccess:
+    Description: If YES Amazon EC2 instances and devices outside the VPC can connect to your database. Choose one or more VPC security groups that specify which EC2 instances and devices inside the VPC can connect to the database AND if NO, RDS will not assign a public IP address to the database. Only Amazon EC2 instances and devices inside the VPC can connect to your database.
+    Type: String
+    Default: "True"
+    AllowedValues: 
+      - "True"
+      - "False"
+
+  PreferredMaintenanceWindow:
+    Description: Select the period you want pending modifications or maintenance applied to the database by Amazon RDS. ( Example Mon:00:00-Mon:03:00  ) and it should be in UTC
+    Type: String
+  
+  DBEnableLogsExports:
+    Description: Do you want to publish logs to CloudWatch ? 
+    Type: String
+    Default: "False"
+    AllowedValues:
+      - "True"
+      - "False"
+
+  DBEnableCloudwatchLogsExports:
+    Description: Select the log types to publish to Amazon CloudWatch Logs
+    Type: String
+    Default: "postgresql"
+    AllowedValues:
+      - "postgresql,upgrade"
+      - "postgresql"
+      - "upgrade"
+
+  DBMultiAZ: 
+    AllowedValues: 
+      - "True"
+      - "False"
+    Default: "False"
+    Description: "Specifies if the database instance is a multiple Availability Zone deployment."
+    Type: String
+
+  DeleteAutomatedBackups:
+    Type: String
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "False"
+
+  EnableIAMDatabaseAuthentication:
+    Type: String
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "False"
+
+  AutoMinorVersionUpgrade:
+    Type: String
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "True"
+
+  MonitoringInterval: 
+    AllowedValues: [ 0, 1, 5, 10, 15, 30, 60]
+    Default: 0
+    Type: Number
+    Description: "The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance. To disable collection of Enhanced Monitoring metrics, specify 0. The default is 0."
+
+  MonitoringRoleArn:
+    Type: String
+
+  DeletionProtection:
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "False"
+    Type: String
+    Description: "Protects the database from being deleted accidentally. While this option is enabled, you can’t delete the database."
+
+Conditions:
+  CreateNewVpc: !Equals 
+    - !Ref ConditionStatement
+    - Yess
+  UseExistingVpc: !Equals
+    - !Ref ConditionStatement
+    - Noo
+
+  DBProvisionedIops:
+    !Equals [ !Ref DBStorageType, io1 ]
+
+  LogsExportCondition:
+    !Equals [!Ref DBEnableLogsExports, True]
+
+
+
+Mappings:
+  # SubnetConfig:
+    # VPC:
+    #   CIDR: 10.1.0.0/16
+    # PublicOne:
+    #   CIDR: 10.1.0.0/24
+    # PublicTwo:
+    #   CIDR: 10.1.1.0/24
+    # PrivateTwo:
+    #   CIDR: 10.1.2.0/24
+  RegionAMI:
+    ap-south-1:
+      HVM64: ami-0e0ff68cb8e9a188a
+
+Resources:
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Condition: CreateNewVpc
+    Properties:
+      VpcId:   !Ref NewVPC 
+      InternetGatewayId: !Ref myInternetGateway
+
+  RouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Condition: CreateNewVpc
+    Properties:
+      VpcId:  !Ref NewVPC 
+
+  SubnetRouteTableAssociationA:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Condition: CreateNewVpc
+    Properties:
+      SubnetId: !Ref PublicSubnetOne
+      RouteTableId: !Ref RouteTable
+  SubnetRouteTableAssociationB:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Condition: CreateNewVpc
+    Properties:
+      SubnetId: !Ref PublicSubnetTwo
+      RouteTableId: !Ref RouteTable
+
+  RouteToInternet:
+    Type: 'AWS::EC2::Route'
+    Condition: CreateNewVpc
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref myInternetGateway
+    DependsOn: VPCGatewayAttachment
+  
+  # DBEngineVersion:
+  #   Description: Select Database Engine Version
+  #   Type: String
+  #   Default: 
+
+
+  myInternetGateway:
+    Condition: CreateNewVpc
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: name
+        Value: stackProduction
+
+  AttachGateway:
+    Condition: CreateNewVpc
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+         Ref:  NewVPC
+      InternetGatewayId:
+         Ref: myInternetGateway
+
+  DBSubnetGroupExisting:
+    Condition: UseExistingVpc
+    Properties:
+      DBSubnetGroupDescription : Old subnet description
+      SubnetIds:
+        - !Ref OldPublicOne
+        - !Ref OldPublicTwo
+      Tags: 
+        - 
+          Key: Name
+          Value: DBSubnetGroup
+    Type: "AWS::RDS::DBSubnetGroup"
+ 
+  myDBSubnetGroup: 
+    Condition: CreateNewVpc
+    Properties: 
+      DBSubnetGroupDescription: description
+      SubnetIds: 
+        - !Ref PublicSubnetOne
+        - !Ref PublicSubnetTwo
+      Tags: 
+        - 
+          Key: Name
+          Value: DBSubnetGroup
+    Type: "AWS::RDS::DBSubnetGroup"
+
+  NewVPC:
+    Type: 'AWS::EC2::VPC'
+    Condition: CreateNewVpc
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: PvrVPC
+
+  PublicSubnetOne:
+    Type: 'AWS::EC2::Subnet'
+    Condition: CreateNewVpc
+    Properties:
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      VpcId: !Ref NewVPC
+      CidrBlock: !Ref SubnetOneCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PvrPublicSubnet
+
+  # PrivateSubnetOne:
+  #   Type: 'AWS::EC2::Subnet'
+  #   Condition: CreateNewVpc
+  #   Properties:
+  #     AvailabilityZone: !Select 
+  #       - 0
+  #       - !GetAZs 
+  #         Ref: 'AWS::Region'
+  #     VpcId: !Ref NewVPC
+  #     CidrBlock: !Ref SubnetThirdCIDR
+  #     Tags:
+  #       - Key: Name
+  #         Value: PvrPrivateSubnetOne
+
+
+  PublicSubnetTwo:
+    Type: 'AWS::EC2::Subnet'
+    Condition: CreateNewVpc
+    Properties:
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      VpcId: !Ref NewVPC
+      CidrBlock: !Ref SubnetTwoCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PvrPublicSubnetTwo
+
+  PostgresDBsinstance:
+    Type: AWS::RDS::DBInstance
+    Condition: UseExistingVpc
+    Properties:
+      DBName: !Ref DBName
+      DBSubnetGroupName:  !Ref DBSubnetGroupExisting 
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      Engine: postgres
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      StorageType: !Ref DBStorageType
+      Iops: !If [DBProvisionedIops, !Ref DBIops, !Ref 'AWS::NoValue']
+      PubliclyAccessible: !Ref PublicAccess
+      # DBPort: !Ref DBPort
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+      CopyTagsToSnapshot: !Ref CopyTagsToSnapshot
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      #AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: !Ref AutoMinorVersionUpgrade
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      AllocatedStorage: !Ref DBAllocatedStorage
+      MaxAllocatedStorage: !Ref DBMaxAllocatedStorage
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      StorageEncrypted : False
+      MultiAZ : !Ref DBMultiAZ
+      EnableIAMDatabaseAuthentication: !Ref EnableIAMDatabaseAuthentication
+      #EnablePerformanceInsights: Boolean
+      #PerformanceInsightsKMSKeyId: String
+      #PerformanceInsightsRetentionPeriod: Integer
+      #MonitoringRoleArn: !Ref MonitoringRoleArn
+      #MonitoringInterval: !Ref MonitoringInterval
+      EnableCloudwatchLogsExports: !If [LogsExportCondition, !Ref DBEnableCloudwatchLogsExports, !Ref 'AWS::NoValue']
+      DeleteAutomatedBackups: !Ref DeleteAutomatedBackups
+      DeletionProtection: !Ref DeletionProtection
+      VPCSecurityGroups : [ !Ref EC2SecurityGroup ]
+
+
+  PostgresDBinstance:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateNewVpc
+    Properties:
+      DBName: !Ref DBName
+      DBSubnetGroupName:  !Ref  myDBSubnetGroup
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      Engine: postgres
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      StorageType: !Ref DBStorageType
+      Iops: !If [DBProvisionedIops, !Ref DBIops, !Ref 'AWS::NoValue']
+      PubliclyAccessible: !Ref PublicAccess
+      # DBPort: !Ref DBPort
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+      CopyTagsToSnapshot: !Ref CopyTagsToSnapshot
+      PreferredBackupWindow: !Ref PreferredBackupWindow
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      AllocatedStorage: !Ref DBAllocatedStorage
+      MaxAllocatedStorage: !Ref DBMaxAllocatedStorage
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      StorageEncrypted : False
+      MultiAZ : !Ref DBMultiAZ
+      #Performance
+      #EnablePerformanceInsights: Boolean
+      #PerformanceInsightsKMSKeyId: String
+      #PerformanceInsightsRetentionPeriod: Integer
+      #Monitoring
+      #EnableCloudwatchLogsExports: !Ref DBEnableCloudwatchLogsExports
+      EnableCloudwatchLogsExports: !If [LogsExportCondition, !Ref DBEnableCloudwatchLogsExports, !Ref 'AWS::NoValue']
+      DeleteAutomatedBackups: True
+      DeletionProtection: !Ref DeletionProtection
+      VPCSecurityGroups : [ !Ref EC2SecurityGrouped ]
+
+  EC2SecurityGrouped:
+      Type: "AWS::EC2::SecurityGroup"
+      Condition: CreateNewVpc
+      #condition: UseExistingVpc
+      Properties:
+          GroupDescription: "Database instances security group"
+          VpcId:  !Ref NewVPC
+          SecurityGroupIngress: 
+            - 
+              CidrIp: "0.0.0.0/0"
+              FromPort: 5432
+              IpProtocol: "tcp"
+              ToPort: 5432
+          SecurityGroupEgress: 
+            - 
+              CidrIp: "0.0.0.0/0"
+              IpProtocol: "-1"
+
+  EC2SecurityGroup:
+      Type: "AWS::EC2::SecurityGroup"
+      #Condition: CreateNewVpc
+      Condition: UseExistingVpc
+      Properties:
+          GroupDescription: "Database instances security group"
+          VpcId:  !Ref VPC 
+          SecurityGroupIngress: 
+            - 
+              #CidrIp: "124.7.61.72/32"
+              CidrIp: "0.0.0.0/0"
+              FromPort: 5432
+              IpProtocol: "tcp"
+              ToPort: 5432
+          SecurityGroupEgress: 
+            - 
+              CidrIp: "0.0.0.0/0"
+              IpProtocol: "-1"
+ 
